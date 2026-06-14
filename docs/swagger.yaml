@@ -8,9 +8,34 @@ definitions:
         example: leartech-catalog-mcp
         type: string
     type: object
+  handlers.fleetTestResponse:
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/handlers.peerResult'
+        type: array
+      success:
+        type: boolean
+      summary:
+        type: string
+    type: object
+  handlers.peerResult:
+    properties:
+      duration_ms:
+        type: integer
+      http_code:
+        type: integer
+      message:
+        type: string
+      ok:
+        type: boolean
+      peer:
+        type: string
+    type: object
 info:
   contact: {}
-  description: Read-only inventory of leartech services for BA/Architect agents. Foundation for V6-P10 + the new-product layer.
+  description: Read-only inventory of leartech services for BA/Architect agents. Foundation
+    for V6-P10 + the new-product layer.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -37,6 +62,27 @@ paths:
       summary: Example endpoint
       tags:
       - example
+  /api/v1/fleet-test:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.fleetTestResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Fleet test endpoint — calls peer template SDKs to prove cross-service
+        auth + SDK wiring.
+      tags:
+      - fleet-test
   /health/live:
     get:
       responses:
