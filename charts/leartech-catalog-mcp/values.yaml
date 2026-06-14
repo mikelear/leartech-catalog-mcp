@@ -73,15 +73,23 @@ database:
   # Key inside that secret holding the full DSN.
   secretKey: DATABASE_URL
 
-  # ExternalSecret (ESO) — syncs the DATABASE_URL from the cluster's secret
-  # backend. Disable for local/kind or if you provision the secret manually.
+  # ExternalSecret (legacy kubernetes-client.io/v1 CRD — both clusters run
+  # this, NOT the newer external-secrets.io operator). Syncs the DSN from
+  # the per-cluster backend; the per-cluster install-values flip the
+  # corresponding gcp/azure block on and fill in the secret coordinates.
+  # Disable for local/kind or if you provision the secret manually.
   externalSecret:
     enabled: true
-    # Name of the SecretStore/ClusterSecretStore to sync from
-    storeRef: cluster-secret-store
-    storeKind: ClusterSecretStore
-    # Remote key in the backend — defaults to {{ fullname }}-database-url
-    remoteKey: ""
+    # GCP-side: Google Secret Manager lookup
+    gcp:
+      enabled: false   # cluster install-values flip this on
+      projectId: product-first
+      secretKey: ""    # cluster install-values fills this
+    # AZ-side: Azure Key Vault lookup
+    azure:
+      enabled: false   # cluster install-values flip this on
+      keyVaultName: "" # cluster install-values fills this
+      secretKey: ""    # cluster install-values fills this
 
 migrations:
   enabled: true
