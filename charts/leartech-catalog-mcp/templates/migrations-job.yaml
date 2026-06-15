@@ -42,16 +42,20 @@ spec:
       containers:
       - name: goose
         image: "{{ .Values.migrations.image.repository }}:{{ .Values.migrations.image.tag }}"
-        args:
-        - postgres
-        - $(DATABASE_URL)
-        - up
+        # kukymbr/goose-docker is ENV-driven (no positional args): GOOSE_DRIVER,
+        # GOOSE_DBSTRING, GOOSE_COMMAND, GOOSE_MIGRATION_DIR. The previous
+        # positional form (`postgres $(DATABASE_URL) up`) made goose print usage
+        # and the Job fail — surfaced by the ESO canary 2026-06-15.
         env:
-        - name: DATABASE_URL
+        - name: GOOSE_DRIVER
+          value: postgres
+        - name: GOOSE_DBSTRING
           valueFrom:
             secretKeyRef:
               name: {{ .Values.database.secretName }}
               key: {{ .Values.database.secretKey }}
+        - name: GOOSE_COMMAND
+          value: up
         - name: GOOSE_MIGRATION_DIR
           value: /migrations
         securityContext:
