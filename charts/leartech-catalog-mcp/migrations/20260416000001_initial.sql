@@ -1,14 +1,8 @@
 -- +goose Up
 -- +goose StatementBegin
--- Initial placeholder migration.
--- Replace with your schema when cloning the template.
---
--- goose conventions:
---   - one file per migration, filename prefixed with UTC timestamp
---   - `-- +goose Up` / `-- +goose Down` sections required
---   - use `-- +goose StatementBegin/End` when a statement contains semicolons
---     (e.g. plpgsql functions) so goose doesn't split on `;`
-
+-- Initial placeholder migration. Replace with your real schema.
+-- NOTE: keep goose annotation tokens out of comment text — goose treats any
+-- line containing the annotation marker as a real annotation and errors.
 CREATE TABLE IF NOT EXISTS example (
     id          BIGSERIAL PRIMARY KEY,
     name        TEXT NOT NULL,
