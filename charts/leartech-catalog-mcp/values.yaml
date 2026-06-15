@@ -73,23 +73,23 @@ database:
   # Key inside that secret holding the full DSN.
   secretKey: DATABASE_URL
 
-  # ExternalSecret (legacy kubernetes-client.io/v1 CRD — both clusters run
-  # this, NOT the newer external-secrets.io operator). Syncs the DSN from
-  # the per-cluster backend; the per-cluster install-values flip the
-  # corresponding gcp/azure block on and fill in the secret coordinates.
-  # Disable for local/kind or if you provision the secret manually.
+  # ExternalSecret (External Secrets Operator, external-secrets.io/v1). The
+  # per-cluster ClusterSecretStore is the GLOBAL `externalSecrets.clusterStore`
+  # (below); only the per-service remote key is set here, in the per-cluster
+  # install-values. Disable for local/kind or if you provision the secret
+  # by another means.
   externalSecret:
     enabled: true
-    # GCP-side: Google Secret Manager lookup
-    gcp:
-      enabled: false   # cluster install-values flip this on
-      projectId: product-first
-      secretKey: ""    # cluster install-values fills this
-    # AZ-side: Azure Key Vault lookup
-    azure:
-      enabled: false   # cluster install-values flip this on
-      keyVaultName: "" # cluster install-values fills this
-      secretKey: ""    # cluster install-values fills this
+    # Per-service key/path in the cluster's secret backend, set by the
+    # per-cluster install-values (e.g. GCP GSM `catalog-mcp-db-dsn`, or the
+    # equivalent Vault path on Azure).
+    remoteKey: ""
+
+# Per-cluster ESO store — set ONCE per GitOps repo in jx-global-values.yaml
+# (gcp-secrets-manager on GCP, vault-backend on Azure). Shared by every
+# service on the cluster; do NOT set per-service.
+externalSecrets:
+  clusterStore: ""
 
 migrations:
   enabled: true

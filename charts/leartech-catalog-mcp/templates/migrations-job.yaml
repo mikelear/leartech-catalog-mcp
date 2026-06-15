@@ -9,7 +9,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "leartech.fullname" . }}-migrate
+  # Version-suffixed name: under jx-boot GitOps the Job is rendered via
+  # `helm template` and `kubectl apply`ed (Helm hook semantics do NOT apply),
+  # so a fixed name + changed template fails apply with "field is immutable"
+  # and wedges boot cluster-wide. A per-version name makes each release a fresh
+  # Job (old ones self-prune via ttlSecondsAfterFinished). goose `up` is
+  # idempotent, so re-running per version is safe.
+  name: {{ include "leartech.fullname" . }}-migrate-{{ .Chart.Version | replace "." "-" }}
   labels:
     {{- include "leartech.labels" . | nindent 4 }}
   annotations:
