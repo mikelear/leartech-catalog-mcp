@@ -1,30 +1,24 @@
 nameOverride: ""
 fullnameOverride: ""
-
 image:
-  repository: ""  # set by release.yaml promote-changelog step
-  tag: ""         # set by release.yaml promote-changelog step
+  repository: "us-central1-docker.pkg.dev/product-first/oci/leartech-catalog-mcp"
+  tag: "0.0.6"
   pullPolicy: IfNotPresent
-
 replicaCount: 2
-
 serviceAccount:
   create: true
   name: ""
   annotations: {}
-
 service:
   name: leartech-catalog-mcp
   type: ClusterIP
   port: 8080
   externalPort: 8080
-
 # Ingress annotations + overrides (domain comes from jxRequirements)
 ingress:
   annotations: {}
   pathType: ImplementationSpecific
   labels: {}
-
 # jxRequirements — auto-populated from jx-values.yaml per cluster/env.
 # Do NOT hardcode domains here.
 jxRequirements:
@@ -40,15 +34,12 @@ jxRequirements:
       enabled: false
       production: false
       secretName: ""
-
 knativeDeploy: false
-
 # Runtime config that ends up in the ConfigMap + mounted / env-injected.
 # Override per env via configs/<env>.yaml or preview helmfile set: block.
 config:
-  cluster: ""  # "gcp" | "az" — set from .Values.global or env-specific
+  cluster: "" # "gcp" | "az" — set from .Values.global or env-specific
   logLevel: info
-
 # OpenTelemetry traces — emitted via OTLP HTTP to the cluster's Tempo.
 # Default endpoint resolves on both GCP and AZ clusters (same service name
 # in jx-observability). Set tracing.enabled=false to fully no-op the SDK
@@ -56,7 +47,6 @@ config:
 tracing:
   enabled: true
   endpoint: tempo.jx-observability:4318
-
 # Postgres wiring — DB credentials come from ExternalSecret (ESO) referencing
 # the cluster's secret backend (GSM on GCP, AKV on Azure).
 database:
@@ -64,7 +54,6 @@ database:
   # for the template's own self-deploy or any "shell-mode" preview where
   # no DB is needed — `/health/ready` will pass without a DB ping.
   enabled: true
-
   # Name of the database within the shared Postgres cluster. Per golden-std:
   # database-per-service, no cross-DB joins.
   name: leartech_catalog_mcp
@@ -72,7 +61,6 @@ database:
   secretName: leartech-catalog-mcp-db
   # Key inside that secret holding the full DSN.
   secretKey: DATABASE_URL
-
   # ExternalSecret (External Secrets Operator, external-secrets.io/v1). The
   # per-cluster ClusterSecretStore is the GLOBAL `externalSecrets.clusterStore`
   # (below); only the per-service remote key is set here, in the per-cluster
@@ -84,19 +72,16 @@ database:
     # per-cluster install-values (e.g. GCP GSM `catalog-mcp-db-dsn`, or the
     # equivalent Vault path on Azure).
     remoteKey: ""
-
 # Per-cluster ESO store — set ONCE per GitOps repo in jx-global-values.yaml
 # (gcp-secrets-manager on GCP, vault-backend on Azure). Shared by every
 # service on the cluster; do NOT set per-service.
 externalSecrets:
   clusterStore: ""
-
 migrations:
   enabled: true
   image:
     repository: ghcr.io/kukymbr/goose-docker
     tag: "3.27.1"
-
 # go-common auth.Config — populated as env vars with AUTH_ prefix.
 # envconfig.Process("", &Config) on the embedded `Auth auth.Config
 # `envconfig:"AUTH"`` field maps each Go field name (uppercased) onto
@@ -108,9 +93,8 @@ migrations:
 auth:
   serverUrl: ""
   clientId: ""
-  clientSecret: ""  # from ExternalSecret, not values
+  clientSecret: "" # from ExternalSecret, not values
   audience: ""
-
 # Template-only feature flags. These exist so the golden-template's
 # staging deploys can prove peer SDK + auth wiring via /api/v1/fleet-test.
 # Cloning consumers should DELETE this whole `fleetTest` stanza along
@@ -123,16 +107,12 @@ fleetTest:
   # previews + ad-hoc deploys don't pull a network path that depends on
   # peers being reachable. Staging overlays set this to true.
   enabled: false
-
 probes:
   liveness: {}
   readiness: {}
   startup: {}
-
-resources: {}  # library defaults apply if empty
-
+resources: {} # library defaults apply if empty
 podAnnotations: {}
-
 nodeSelector: {}
 tolerations: []
 affinity: {}
