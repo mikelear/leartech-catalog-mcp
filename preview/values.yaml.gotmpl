@@ -13,6 +13,35 @@ config:
   cluster: '{{ env "CLUSTER_ID" | default "" }}'
   logLevel: debug
 
+# C1 (auth hardening) preview wiring — MUST NOT run AUTH_REQUIRED=false
+# even in preview. Preview pods run fail-closed with a placeholder issuer;
+# go-common's ServiceClient constructor tolerates an unreachable JWKS
+# (keyfunc/v3 does lazy background refresh with NoErrorReturnFirstHTTPReq),
+# so the pod boots 1/1 and /health/live is served on the bypass path.
+# Any request to /api/v1/* is rejected 401 because the JWKS never
+# resolves — the exact fail-closed signal C1 requires. Mirrors the
+# orch/agent/mcp preview fix.
+#
+# `clientSecret` MUST be non-empty here: go-common v1.0.0
+# NewServiceClient rejects construction when any of ServerURL /
+# ClientID / ClientSecret / Audience is empty, so without a literal
+# the pod crash-loops on boot and /health/live never returns 3× 200 →
+# end2end task times out at 10 min. The literal is a throwaway
+# placeholder — client_credentials against the placeholder issuer
+# 404s and no real token is ever minted. deployment.yaml wires this
+# literal as an inline `value:` on the container env (no plain k8s
+# Secret manifest — the leartech-no-plain-k8s-secret convention still
+# holds). In staging/production this value MUST be empty; a
+# per-cluster ExternalSecret provides the real credential under the
+# same k8s Secret name and deployment.yaml switches back to
+# `secretKeyRef`.
+auth:
+  required: true
+  issuer: "https://hydra.preview-default.invalid"
+  clientId: "preview-catalog-mcp"
+  clientSecret: "preview-throwaway-not-a-real-credential"
+  audience: "leartech-catalog-mcp"
+
 # Looser resources for previews
 resources:
   requests:
