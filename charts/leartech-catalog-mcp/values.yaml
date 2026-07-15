@@ -119,11 +119,20 @@ migrations:
 #     config (helmfiles/.../configs/leartech-catalog-mcp.yaml) supplies
 #     the concrete Hydra URL. Preview `values.yaml.gotmpl` overrides
 #     with a placeholder so previews boot 1/1 without a live Hydra.
+#   - `clientSecret` is empty here on purpose. When empty, the chart's
+#     templates/auth-secret.yaml renders NOTHING and the k8s Secret
+#     `<release>-auth` is expected to exist out-of-band (an
+#     ExternalSecret at the cluster GitOps level provides it). When
+#     set to a literal (preview only, see preview/values.yaml.gotmpl),
+#     the chart renders the Secret directly — this is what unblocks
+#     preview deploys where no real Hydra credential is available.
+#     NEVER put a real credential in a values.yaml — always
+#     ExternalSecret in staging/prod.
 auth:
   required: true
   issuer: ""
   clientId: ""
-  clientSecret: ""  # from ExternalSecret, not values
+  clientSecret: ""  # empty in prod; ExternalSecret provides. Preview overrides with a literal.
   audience: leartech-catalog-mcp
 
 # Template-only feature flags. These exist so the golden-template's

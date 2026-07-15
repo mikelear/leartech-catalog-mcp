@@ -5,20 +5,33 @@ import (
 	"testing"
 )
 
+// unsetEnv is a t.Helper()-flavoured wrapper that clears an env var
+// and IGNORES the error from os.Unsetenv — Unsetenv returns an error
+// only on Windows when the var name is invalid, which isn't a case
+// we can hit in a Linux CI env. Wrapping it silences errcheck without
+// littering the test with `_ = os.Unsetenv(...)` prefixes.
+func unsetEnv(t *testing.T, keys ...string) {
+	t.Helper()
+	for _, k := range keys {
+		_ = os.Unsetenv(k)
+	}
+}
+
 // TestLoadDefaults confirms envconfig supplies defaults when env is empty.
 // DATABASE_URL is intentionally not required (shell mode).
 // AUTH_REQUIRED defaults to `true` per C1 (auth hardening) — the chart
 // must never accidentally boot with AUTH_REQUIRED=false because envconfig
 // omitted the env var.
 func TestLoadDefaults(t *testing.T) {
+	// t.Setenv registers a cleanup that RESTORES the prior value, so we
+	// still need to explicitly Unsetenv to get the "env-absent" state
+	// this test exercises. Registering Setenv("") first also causes
+	// t.Cleanup to remove the var after the test, which is what we want.
 	t.Setenv("PORT", "")
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("CLUSTER_ID", "")
 	t.Setenv("AUTH_REQUIRED", "")
-	os.Unsetenv("PORT")
-	os.Unsetenv("DATABASE_URL")
-	os.Unsetenv("CLUSTER_ID")
-	os.Unsetenv("AUTH_REQUIRED")
+	unsetEnv(t, "PORT", "DATABASE_URL", "CLUSTER_ID", "AUTH_REQUIRED")
 
 	cfg, err := Load()
 	if err != nil {
