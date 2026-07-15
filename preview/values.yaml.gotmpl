@@ -28,11 +28,13 @@ config:
 # the pod crash-loops on boot and /health/live never returns 3× 200 →
 # end2end task times out at 10 min. The literal is a throwaway
 # placeholder — client_credentials against the placeholder issuer
-# 404s and no real token is ever minted. The chart's templates/auth-secret.yaml
-# renders a k8s Secret from this literal so deployment.yaml's
-# secretKeyRef resolves. In staging/production this value MUST be
-# empty; a per-cluster ExternalSecret provides the real credential
-# under the same k8s Secret name.
+# 404s and no real token is ever minted. deployment.yaml wires this
+# literal as an inline `value:` on the container env (no plain k8s
+# Secret manifest — the leartech-no-plain-k8s-secret convention still
+# holds). In staging/production this value MUST be empty; a
+# per-cluster ExternalSecret provides the real credential under the
+# same k8s Secret name and deployment.yaml switches back to
+# `secretKeyRef`.
 auth:
   required: true
   issuer: "https://hydra.preview-default.invalid"

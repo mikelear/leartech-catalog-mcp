@@ -61,12 +61,38 @@ spec:
           value: {{ .Values.auth.issuer | quote }}
         - name: AUTH_CLIENTID
           value: {{ .Values.auth.clientId | quote }}
+        # AUTH_CLIENTSECRET has two wiring modes:
+        #   1) preview / local — a literal `auth.clientSecret` in values
+        #      renders directly as `value:`. Preview environments have no
+        #      backend secret store to sync from; the literal is a
+        #      throwaway placeholder that only satisfies go-common
+        #      v1.0.0's non-empty ClientSecret construction check
+        #      (client_credentials against the placeholder issuer 404s).
+        #      Never put a real credential in values.yaml.
+        #   2) staging / production — leave `auth.clientSecret` empty in
+        #      per-cluster values and provision the same-named k8s
+        #      Secret (`<release>-auth`, key `clientSecret`) via an
+        #      ExternalSecret owned by the cluster GitOps SOURCE overlay
+        #      (external-secrets.io — the leartech convention captured
+        #      by the semgrep rule `leartech-no-plain-k8s-secret`).
+        #      The `secretKeyRef` here reads that Secret.
+        #
+        # `optional: true` on the secretKeyRef prevents the pod from
+        # blocking on Secret existence during the ExternalSecret sync
+        # window; if the env stays empty, go-common's fail-closed
+        # construction check crashes the pod with a clear
+        # "LEARTECH_AUTH_CLIENT_SECRET missing" error.
+        {{- if .Values.auth.clientSecret }}
+        - name: AUTH_CLIENTSECRET
+          value: {{ .Values.auth.clientSecret | quote }}
+        {{- else }}
         - name: AUTH_CLIENTSECRET
           valueFrom:
             secretKeyRef:
               name: {{ include "leartech.fullname" . }}-auth
               key: clientSecret
               optional: true
+        {{- end }}
         # Audience is the RFC 8707 `aud` claim we enforce on inbound
         # tokens. Canonical value is `leartech-catalog-mcp` — mirrors
         # the orch/agent/mcp C1 pattern. Per-cluster GitOps MAY
