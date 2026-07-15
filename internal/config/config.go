@@ -23,9 +23,26 @@ type Config struct {
 	// provide this via ExternalSecret.
 	DatabaseURL string `envconfig:"DATABASE_URL"`
 
+	// AuthRequired gates the bearer middleware on /api/v1/*.
+	//
+	// C1 (auth hardening): default `true` — production charts MUST run
+	// with auth on. Setting `false` is a deliberate local-dev / smoke-
+	// test opt-out; there is NO "auth on but no audience configured"
+	// path — with AuthRequired=true, missing issuer / audience / client
+	// creds all crash the pod at boot via go-common's fail-closed
+	// NewServiceClient. Never noop, never fail-open.
+	AuthRequired bool `envconfig:"AUTH_REQUIRED" default:"true"`
+
 	// Auth is the go-common ServiceAuthClient config — used both for the
 	// bearer middleware guarding our API and for outbound auth to other
 	// leartech services.
+	//
+	// Envconfig populates each field as AUTH_<FIELDNAME> (uppercased), so
+	// go-common's Config.ServerURL is set via AUTH_SERVERURL, ClientID via
+	// AUTH_CLIENTID, ClientSecret via AUTH_CLIENTSECRET, Audience via
+	// AUTH_AUDIENCE. The chart's deployment.yaml supplies each; when
+	// AuthRequired is true and any of these is empty the pod fails to
+	// boot (the intended fail-closed signal).
 	Auth auth.Config `envconfig:"AUTH"`
 
 	// FleetTestEnabled is a template-only flag — when true, register

@@ -13,6 +13,19 @@ config:
   cluster: '{{ env "CLUSTER_ID" | default "" }}'
   logLevel: debug
 
+# C1 (auth hardening) preview wiring — MUST NOT run AUTH_REQUIRED=false
+# even in preview. Preview pods run fail-closed with a placeholder issuer;
+# go-common's ServiceClient constructor tolerates an unreachable JWKS
+# (keyfunc/v3 does lazy background refresh), so the pod boots 1/1 and
+# /health/live is served on the bypass path. Any request to /api/v1/*
+# is rejected 401 because the JWKS never resolves — the exact fail-
+# closed signal C1 requires. Mirrors the orch/agent/mcp preview fix.
+auth:
+  required: true
+  issuer: "https://hydra.preview-default.invalid"
+  clientId: "preview-catalog-mcp"
+  audience: "leartech-catalog-mcp"
+
 # Looser resources for previews
 resources:
   requests:

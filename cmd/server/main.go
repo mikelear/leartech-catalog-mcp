@@ -129,8 +129,29 @@ func run() error {
 	router.HEAD("/docs", docs)
 
 	// All non-health, non-metrics, non-docs routes require bearer auth.
+	//
+	// C1 (auth hardening) fail-closed contract:
+	//   - AuthRequired defaults to true; the pod refuses to boot unless
+	//     issuer + audience + client creds are all wired (go-common v1.0.0
+	//     validates in NewServiceClient — no noop / pass-through path).
+	//   - Audience validation is enforced on every request against the
+	//     configured cfg.Auth.Audience ("leartech-catalog-mcp" in prod).
+	//   - AuthRequired=false is a deliberate local-dev / smoke opt-out
+	//     — production charts always run with AuthRequired=true.
 	authed := router.Group("/api/v1")
-	authed.Use(middleware.BearerAuth(cfg.Auth))
+	if cfg.AuthRequired {
+		bearer, err := middleware.BearerAuth(cfg.Auth)
+		if err != nil {
+			return fmt.Errorf("auth middleware (AUTH_REQUIRED=true): %w", err)
+		}
+		authed.Use(bearer)
+		log.Info().
+			Str("audience", cfg.Auth.Audience).
+			Str("issuer", cfg.Auth.ServerURL).
+			Msg("auth: bearer middleware enabled on /api/v1")
+	} else {
+		log.Warn().Msg("AUTH_REQUIRED=false — /api/v1 is UNAUTHENTICATED (local-dev only)")
+	}
 
 	exampleHandler := handlers.NewExampleHandler(pool)
 	exampleHandler.RegisterRoutes(authed)

@@ -43,8 +43,22 @@ spec:
               name: {{ .Values.database.secretName }}
               key: {{ .Values.database.secretKey }}
         {{- end }}
+        # C1 (auth hardening) — AUTH_REQUIRED gates the bearer middleware.
+        # Chart default is `true`; a mis-wired GitOps SOURCE overlay
+        # (no issuer, no audience) crashes the pod on boot instead of
+        # silently serving unvalidated tokens. Preview `values.yaml.gotmpl`
+        # supplies a placeholder issuer so previews boot 1/1 with
+        # AUTH_REQUIRED=true — the JWKS is fetched lazily so an
+        # unreachable placeholder is fine while /health/live remains a
+        # bypass path.
+        - name: AUTH_REQUIRED
+          value: {{ .Values.auth.required | quote }}
+        {{- if .Values.auth.required }}
+        # go-common v1.0.0 fail-closed envs (LEARTECH_AUTH_* is the
+        # library-side name; envconfig wires them via the AUTH_ prefix
+        # so the Go field names map to AUTH_<FIELDNAME>).
         - name: AUTH_SERVERURL
-          value: {{ .Values.auth.serverUrl | quote }}
+          value: {{ .Values.auth.issuer | quote }}
         - name: AUTH_CLIENTID
           value: {{ .Values.auth.clientId | quote }}
         - name: AUTH_CLIENTSECRET
@@ -53,8 +67,14 @@ spec:
               name: {{ include "leartech.fullname" . }}-auth
               key: clientSecret
               optional: true
+        # Audience is the RFC 8707 `aud` claim we enforce on inbound
+        # tokens. Canonical value is `leartech-catalog-mcp` — mirrors
+        # the orch/agent/mcp C1 pattern. Per-cluster GitOps MAY
+        # override for staging quirks, but production defaults to the
+        # canonical audience.
         - name: AUTH_AUDIENCE
           value: {{ .Values.auth.audience | quote }}
+        {{- end }}
         # Template-only — see values.yaml `fleetTest` stanza. Drop this
         # env var when cloning the template into a real service.
         - name: FLEET_TEST_ENABLED

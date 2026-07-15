@@ -97,7 +97,7 @@ migrations:
     repository: ghcr.io/kukymbr/goose-docker
     tag: "3.27.1"
 
-# go-common auth.Config — populated as env vars with AUTH_ prefix.
+# go-common v1.0.0 auth.Config — populated as env vars with AUTH_ prefix.
 # envconfig.Process("", &Config) on the embedded `Auth auth.Config
 # `envconfig:"AUTH"`` field maps each Go field name (uppercased) onto
 # AUTH_<FIELDNAME>. go-common's field is named `ServerURL` so the
@@ -105,11 +105,26 @@ migrations:
 # was a bug — left cfg.ServerURL empty → NewServiceClient returned
 # noopClient → middleware passed every request through. Direct
 # unauthenticated curl to /api/v1/example returned 200 in staging.
+#
+# C1 (auth hardening) contract:
+#   - `required: true` is the default. The go-common v1.0.0 client
+#     REFUSES to construct with an empty ServerURL / ClientID /
+#     ClientSecret / Audience — a mis-wired GitOps SOURCE overlay
+#     crashes the pod on boot instead of silently serving
+#     unvalidated tokens.
+#   - `audience` defaults to the canonical internal audience for this
+#     service, `leartech-catalog-mcp`. Tokens with any other `aud`
+#     are rejected by the inbound middleware.
+#   - `issuer` is intentionally empty here — per-cluster GitOps SOURCE
+#     config (helmfiles/.../configs/leartech-catalog-mcp.yaml) supplies
+#     the concrete Hydra URL. Preview `values.yaml.gotmpl` overrides
+#     with a placeholder so previews boot 1/1 without a live Hydra.
 auth:
-  serverUrl: ""
+  required: true
+  issuer: ""
   clientId: ""
   clientSecret: ""  # from ExternalSecret, not values
-  audience: ""
+  audience: leartech-catalog-mcp
 
 # Template-only feature flags. These exist so the golden-template's
 # staging deploys can prove peer SDK + auth wiring via /api/v1/fleet-test.
