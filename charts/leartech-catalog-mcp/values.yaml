@@ -97,21 +97,26 @@ migrations:
     repository: ghcr.io/kukymbr/goose-docker
     tag: "3.27.1"
 
-# go-common v1.0.0 auth.Config — populated as env vars with AUTH_ prefix.
-# envconfig.Process("", &Config) on the embedded `Auth auth.Config
+# go-common v1.1.0 auth.VerifierConfig — populated as env vars with the
+# AUTH_ prefix. envconfig.Process on the embedded `Auth auth.VerifierConfig
 # `envconfig:"AUTH"`` field maps each Go field name (uppercased) onto
-# AUTH_<FIELDNAME>. go-common's field is named `ServerURL` so the
-# env var must be `AUTH_SERVERURL`, NOT `AUTH_TOKENURL`. The old name
-# was a bug — left cfg.ServerURL empty → NewServiceClient returned
-# noopClient → middleware passed every request through. Direct
-# unauthenticated curl to /api/v1/example returned 200 in staging.
+# AUTH_<FIELDNAME>. go-common's inbound-only Verifier needs ONLY
+# `Issuer` + `Audience` → env vars AUTH_ISSUER + AUTH_AUDIENCE.
+#
+# catalog-mcp is a PURE RESOURCE SERVER (validates JWTs, never mints
+# them), so we deliberately use the Verifier path — no client_id /
+# client_secret / server_url required or consulted. This closed the
+# fail-closed crashloop where catalog was mis-using the outbound
+# ServiceAuthClient path for pure inbound validation and refused to
+# boot with "required config missing: LEARTECH_AUTH_SERVER_URL,
+# LEARTECH_AUTH_CLIENT_ID, LEARTECH_AUTH_CLIENT_SECRET" — creds it
+# never actually needed.
 #
 # C1 (auth hardening) contract:
-#   - `required: true` is the default. The go-common v1.0.0 client
-#     REFUSES to construct with an empty ServerURL / ClientID /
-#     ClientSecret / Audience — a mis-wired GitOps SOURCE overlay
-#     crashes the pod on boot instead of silently serving
-#     unvalidated tokens.
+#   - `required: true` is the default. go-common v1.1.0 NewVerifier
+#     REFUSES to construct with an empty Issuer / Audience — a mis-wired
+#     GitOps SOURCE overlay crashes the pod on boot instead of silently
+#     serving unvalidated tokens.
 #   - `audience` defaults to the canonical internal audience for this
 #     service, `leartech-catalog-mcp`. Tokens with any other `aud`
 #     are rejected by the inbound middleware.
@@ -119,22 +124,9 @@ migrations:
 #     config (helmfiles/.../configs/leartech-catalog-mcp.yaml) supplies
 #     the concrete Hydra URL. Preview `values.yaml.gotmpl` overrides
 #     with a placeholder so previews boot 1/1 without a live Hydra.
-#   - `clientSecret` is empty here on purpose. When empty, deployment.yaml
-#     wires AUTH_CLIENTSECRET via `secretKeyRef` on `<release>-auth`
-#     (`optional: true`), and the same-named k8s Secret is expected to be
-#     provisioned out-of-band by a cluster-level ExternalSecret
-#     (external-secrets.io — the leartech convention captured by the
-#     semgrep rule `leartech-no-plain-k8s-secret`). When a literal is
-#     supplied (preview only, see preview/values.yaml.gotmpl),
-#     deployment.yaml switches to inline `value:` — no plain k8s Secret
-#     manifest is ever rendered by the chart, so the convention holds.
-#     NEVER put a real credential in a values.yaml — always
-#     ExternalSecret in staging/prod.
 auth:
   required: true
   issuer: ""
-  clientId: ""
-  clientSecret: ""  # empty in prod; ExternalSecret provides. Preview overrides with a literal.
   audience: leartech-catalog-mcp
 
 # Template-only feature flags. These exist so the golden-template's

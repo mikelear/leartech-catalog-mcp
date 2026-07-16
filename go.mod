@@ -9,7 +9,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/mikelear/leartech-go-common v1.0.0
+	github.com/mikelear/leartech-go-common v1.1.0
 	github.com/mikelear/leartech-go-packages/rustservicetemplate v0.0.0-20260608074839-546338dd91b0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/zerolog v1.35.1

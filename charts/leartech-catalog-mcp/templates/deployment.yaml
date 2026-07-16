@@ -54,45 +54,18 @@ spec:
         - name: AUTH_REQUIRED
           value: {{ .Values.auth.required | quote }}
         {{- if .Values.auth.required }}
-        # go-common v1.0.0 fail-closed envs (LEARTECH_AUTH_* is the
-        # library-side name; envconfig wires them via the AUTH_ prefix
-        # so the Go field names map to AUTH_<FIELDNAME>).
-        - name: AUTH_SERVERURL
-          value: {{ .Values.auth.issuer | quote }}
-        - name: AUTH_CLIENTID
-          value: {{ .Values.auth.clientId | quote }}
-        # AUTH_CLIENTSECRET has two wiring modes:
-        #   1) preview / local — a literal `auth.clientSecret` in values
-        #      renders directly as `value:`. Preview environments have no
-        #      backend secret store to sync from; the literal is a
-        #      throwaway placeholder that only satisfies go-common
-        #      v1.0.0's non-empty ClientSecret construction check
-        #      (client_credentials against the placeholder issuer 404s).
-        #      Never put a real credential in values.yaml.
-        #   2) staging / production — leave `auth.clientSecret` empty in
-        #      per-cluster values and provision the same-named k8s
-        #      Secret (`<release>-auth`, key `clientSecret`) via an
-        #      ExternalSecret owned by the cluster GitOps SOURCE overlay
-        #      (external-secrets.io — the leartech convention captured
-        #      by the semgrep rule `leartech-no-plain-k8s-secret`).
-        #      The `secretKeyRef` here reads that Secret.
+        # go-common v1.1.0 inbound-only Verifier envs. envconfig wires
+        # them via the AUTH_ prefix so the Go field names map to
+        # AUTH_<FIELDNAME>: VerifierConfig.Issuer   → AUTH_ISSUER,
+        # VerifierConfig.Audience → AUTH_AUDIENCE.
         #
-        # `optional: true` on the secretKeyRef prevents the pod from
-        # blocking on Secret existence during the ExternalSecret sync
-        # window; if the env stays empty, go-common's fail-closed
-        # construction check crashes the pod with a clear
-        # "LEARTECH_AUTH_CLIENT_SECRET missing" error.
-        {{- if .Values.auth.clientSecret }}
-        - name: AUTH_CLIENTSECRET
-          value: {{ .Values.auth.clientSecret | quote }}
-        {{- else }}
-        - name: AUTH_CLIENTSECRET
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "leartech.fullname" . }}-auth
-              key: clientSecret
-              optional: true
-        {{- end }}
+        # catalog-mcp is a PURE RESOURCE SERVER — it validates JWTs but
+        # never mints them, so NO LEARTECH_AUTH_SERVER_URL / CLIENT_ID /
+        # CLIENT_SECRET are needed. Requiring them before was a
+        # mis-wiring that crashloop'd the pod fail-closed with
+        # "required config missing" — this initiative closes that.
+        - name: AUTH_ISSUER
+          value: {{ .Values.auth.issuer | quote }}
         # Audience is the RFC 8707 `aud` claim we enforce on inbound
         # tokens. Canonical value is `leartech-catalog-mcp` — mirrors
         # the orch/agent/mcp C1 pattern. Per-cluster GitOps MAY
@@ -100,6 +73,13 @@ spec:
         # canonical audience.
         - name: AUTH_AUDIENCE
           value: {{ .Values.auth.audience | quote }}
+        {{- if .Values.auth.jwksURL }}
+        # Optional explicit JWKS URL — empty by default; Verifier
+        # derives Issuer + /.well-known/jwks.json. Set only when the
+        # issuer advertises its JWKS at a non-standard path.
+        - name: AUTH_JWKSURL
+          value: {{ .Values.auth.jwksURL | quote }}
+        {{- end }}
         {{- end }}
         # Template-only — see values.yaml `fleetTest` stanza. Drop this
         # env var when cloning the template into a real service.

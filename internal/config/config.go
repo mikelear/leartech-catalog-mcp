@@ -28,22 +28,29 @@ type Config struct {
 	// C1 (auth hardening): default `true` — production charts MUST run
 	// with auth on. Setting `false` is a deliberate local-dev / smoke-
 	// test opt-out; there is NO "auth on but no audience configured"
-	// path — with AuthRequired=true, missing issuer / audience / client
-	// creds all crash the pod at boot via go-common's fail-closed
-	// NewServiceClient. Never noop, never fail-open.
+	// path — with AuthRequired=true, missing issuer / audience crash
+	// the pod at boot via go-common v1.1.0's fail-closed NewVerifier.
+	// Never noop, never fail-open.
 	AuthRequired bool `envconfig:"AUTH_REQUIRED" default:"true"`
 
-	// Auth is the go-common ServiceAuthClient config — used both for the
-	// bearer middleware guarding our API and for outbound auth to other
-	// leartech services.
+	// Auth is go-common v1.1.0's INBOUND-ONLY VerifierConfig — used to
+	// validate bearer tokens on /api/v1/*. catalog-mcp is a pure resource
+	// server: it validates JWTs but never mints them, so we deliberately
+	// use VerifierConfig (issuer + audience) rather than the full Config
+	// (which also carries client_credentials fields for OUTBOUND minting).
 	//
-	// Envconfig populates each field as AUTH_<FIELDNAME> (uppercased), so
-	// go-common's Config.ServerURL is set via AUTH_SERVERURL, ClientID via
-	// AUTH_CLIENTID, ClientSecret via AUTH_CLIENTSECRET, Audience via
-	// AUTH_AUDIENCE. The chart's deployment.yaml supplies each; when
-	// AuthRequired is true and any of these is empty the pod fails to
-	// boot (the intended fail-closed signal).
-	Auth auth.Config `envconfig:"AUTH"`
+	// Envconfig populates each field as AUTH_<FIELDNAME> (uppercased):
+	//   - VerifierConfig.Issuer   → AUTH_ISSUER
+	//   - VerifierConfig.Audience → AUTH_AUDIENCE
+	//   - VerifierConfig.JWKSURL  → AUTH_JWKSURL (optional override)
+	//
+	// The chart's deployment.yaml supplies AUTH_ISSUER and AUTH_AUDIENCE;
+	// when AuthRequired is true and either is empty the pod fails to boot
+	// (the intended fail-closed signal). NO LEARTECH_AUTH_SERVER_URL /
+	// CLIENT_ID / CLIENT_SECRET are required or consulted — that was the
+	// crash-loop this initiative closes: catalog was mis-using the outbound
+	// ServiceAuthClient path for pure inbound validation.
+	Auth auth.VerifierConfig `envconfig:"AUTH"`
 
 	// FleetTestEnabled is a template-only flag — when true, register
 	// the /api/v1/fleet-test endpoint that calls peer golden-template

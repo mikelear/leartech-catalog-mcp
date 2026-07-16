@@ -132,8 +132,11 @@ func run() error {
 	//
 	// C1 (auth hardening) fail-closed contract:
 	//   - AuthRequired defaults to true; the pod refuses to boot unless
-	//     issuer + audience + client creds are all wired (go-common v1.0.0
-	//     validates in NewServiceClient — no noop / pass-through path).
+	//     issuer + audience are both wired (go-common v1.1.0 validates
+	//     in NewVerifier — no noop / pass-through path).
+	//   - catalog-mcp is a pure resource server (validates JWTs, never
+	//     mints them), so it uses go-common v1.1.0's inbound-only
+	//     Verifier — no client_credentials required.
 	//   - Audience validation is enforced on every request against the
 	//     configured cfg.Auth.Audience ("leartech-catalog-mcp" in prod).
 	//   - AuthRequired=false is a deliberate local-dev / smoke opt-out
@@ -147,7 +150,7 @@ func run() error {
 		authed.Use(bearer)
 		log.Info().
 			Str("audience", cfg.Auth.Audience).
-			Str("issuer", cfg.Auth.ServerURL).
+			Str("issuer", cfg.Auth.Issuer).
 			Msg("auth: bearer middleware enabled on /api/v1")
 	} else {
 		log.Warn().Msg("AUTH_REQUIRED=false — /api/v1 is UNAUTHENTICATED (local-dev only)")

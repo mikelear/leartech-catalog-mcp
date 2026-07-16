@@ -68,13 +68,12 @@
     },
     "auth": {
       "type": "object",
-      "description": "go-common v1.0.0 auth wiring (C1 fail-closed).",
+      "description": "go-common v1.1.0 auth.VerifierConfig wiring (C1 fail-closed, inbound-only).",
       "properties": {
         "required": { "type": "boolean", "description": "Gates the bearer middleware. Prod default true; false is local-dev-only." },
-        "issuer":   { "type": "string", "description": "Hydra base URL — populated per-cluster by GitOps SOURCE." },
-        "clientId": { "type": "string" },
-        "clientSecret": { "type": "string", "description": "From ExternalSecret, not values." },
-        "audience": { "type": "string", "description": "RFC 8707 inbound audience — canonical value is leartech-catalog-mcp." }
+        "issuer":   { "type": "string", "description": "Hydra base URL — populated per-cluster by GitOps SOURCE. Required when auth.required=true." },
+        "audience": { "type": "string", "description": "RFC 8707 inbound audience — canonical value is leartech-catalog-mcp." },
+        "jwksURL":  { "type": "string", "description": "Optional explicit JWKS URL override (empty = derive Issuer + /.well-known/jwks.json)." }
       }
     },
     "probes":        { "type": "object" },
