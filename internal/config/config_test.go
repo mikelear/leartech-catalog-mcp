@@ -70,30 +70,44 @@ func TestLoadOverrides(t *testing.T) {
 }
 
 // TestLoadAuthEnvMapping confirms envconfig maps the AUTH_ prefix onto
-// go-common's auth.Config fields via uppercased field names — the
-// wire-format the chart must emit for go-common v1.0.0's fail-closed
-// NewServiceClient to receive a fully-populated Config.
+// go-common v1.1.0's auth.VerifierConfig fields via uppercased field
+// names — the wire-format the chart must emit for the fail-closed
+// NewVerifier to receive a fully-populated VerifierConfig.
+//
+// Critically: only AUTH_ISSUER + AUTH_AUDIENCE are consulted. NO
+// AUTH_SERVERURL / CLIENTID / CLIENTSECRET — catalog-mcp is a pure
+// resource server and doesn't need client_credentials for inbound
+// validation. That's the initiative closing the fail-closed crashloop.
 func TestLoadAuthEnvMapping(t *testing.T) {
-	t.Setenv("AUTH_SERVERURL", "https://hydra.example.com")
-	t.Setenv("AUTH_CLIENTID", "catalog-mcp")
-	t.Setenv("AUTH_CLIENTSECRET", "s3cret")
+	t.Setenv("AUTH_ISSUER", "https://hydra.example.com")
 	t.Setenv("AUTH_AUDIENCE", "leartech-catalog-mcp")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.Auth.ServerURL != "https://hydra.example.com" {
-		t.Errorf("Auth.ServerURL = %q, want https://hydra.example.com", cfg.Auth.ServerURL)
-	}
-	if cfg.Auth.ClientID != "catalog-mcp" {
-		t.Errorf("Auth.ClientID = %q, want catalog-mcp", cfg.Auth.ClientID)
-	}
-	if cfg.Auth.ClientSecret != "s3cret" {
-		t.Errorf("Auth.ClientSecret = %q, want s3cret", cfg.Auth.ClientSecret)
+	if cfg.Auth.Issuer != "https://hydra.example.com" {
+		t.Errorf("Auth.Issuer = %q, want https://hydra.example.com", cfg.Auth.Issuer)
 	}
 	if cfg.Auth.Audience != "leartech-catalog-mcp" {
 		t.Errorf("Auth.Audience = %q, want leartech-catalog-mcp", cfg.Auth.Audience)
+	}
+}
+
+// TestLoadAuthOptionalJWKSURL locks in that the JWKSURL override is
+// pluggable via envconfig for tests / non-standard issuers. Empty by
+// default → Verifier derives from Issuer.
+func TestLoadAuthOptionalJWKSURL(t *testing.T) {
+	t.Setenv("AUTH_ISSUER", "https://hydra.example.com")
+	t.Setenv("AUTH_AUDIENCE", "leartech-catalog-mcp")
+	t.Setenv("AUTH_JWKSURL", "https://custom-jwks.example.com/keys")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Auth.JWKSURL != "https://custom-jwks.example.com/keys" {
+		t.Errorf("Auth.JWKSURL = %q, want the custom override", cfg.Auth.JWKSURL)
 	}
 }
 
