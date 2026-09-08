@@ -19,8 +19,8 @@ func unsetEnv(t *testing.T, keys ...string) {
 
 // TestLoadDefaults confirms envconfig supplies defaults when env is empty.
 // DATABASE_URL is intentionally not required (shell mode).
-// AUTH_REQUIRED defaults to `true` per C1 (auth hardening) — the chart
-// must never accidentally boot with AUTH_REQUIRED=false because envconfig
+// AUTH_REQUIRED is gone; there is no default to get wrong because there is no
+// flag. This kept its other assertions. (It once existed because envconfig
 // omitted the env var.
 func TestLoadDefaults(t *testing.T) {
 	// t.Setenv registers a cleanup that RESTORES the prior value, so we
@@ -30,8 +30,7 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("PORT", "")
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("CLUSTER_ID", "")
-	t.Setenv("AUTH_REQUIRED", "")
-	unsetEnv(t, "PORT", "DATABASE_URL", "CLUSTER_ID", "AUTH_REQUIRED")
+	unsetEnv(t, "PORT", "DATABASE_URL", "CLUSTER_ID")
 
 	cfg, err := Load()
 	if err != nil {
@@ -42,9 +41,6 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.DatabaseURL != "" {
 		t.Errorf("DatabaseURL = %q, want empty (shell mode)", cfg.DatabaseURL)
-	}
-	if !cfg.AuthRequired {
-		t.Errorf("AuthRequired = false, want true (C1 default — never boot fail-open by omission)")
 	}
 }
 
@@ -74,13 +70,13 @@ func TestLoadOverrides(t *testing.T) {
 // names — the wire-format the chart must emit for the fail-closed
 // NewVerifier to receive a fully-populated VerifierConfig.
 //
-// Critically: only AUTH_ISSUER + AUTH_AUDIENCE are consulted. NO
+// Critically: only LEARTECH_AUTH_ISSUER + LEARTECH_AUTH_AUDIENCE are consulted. NO
 // AUTH_SERVERURL / CLIENTID / CLIENTSECRET — catalog-mcp is a pure
 // resource server and doesn't need client_credentials for inbound
 // validation. That's the initiative closing the fail-closed crashloop.
 func TestLoadAuthEnvMapping(t *testing.T) {
-	t.Setenv("AUTH_ISSUER", "https://hydra.example.com")
-	t.Setenv("AUTH_AUDIENCE", "leartech-catalog-mcp")
+	t.Setenv("LEARTECH_AUTH_ISSUER", "https://hydra.example.com")
+	t.Setenv("LEARTECH_AUTH_AUDIENCE", "leartech-catalog-mcp")
 
 	cfg, err := Load()
 	if err != nil {
@@ -98,9 +94,9 @@ func TestLoadAuthEnvMapping(t *testing.T) {
 // pluggable via envconfig for tests / non-standard issuers. Empty by
 // default → Verifier derives from Issuer.
 func TestLoadAuthOptionalJWKSURL(t *testing.T) {
-	t.Setenv("AUTH_ISSUER", "https://hydra.example.com")
-	t.Setenv("AUTH_AUDIENCE", "leartech-catalog-mcp")
-	t.Setenv("AUTH_JWKSURL", "https://custom-jwks.example.com/keys")
+	t.Setenv("LEARTECH_AUTH_ISSUER", "https://hydra.example.com")
+	t.Setenv("LEARTECH_AUTH_AUDIENCE", "leartech-catalog-mcp")
+	t.Setenv("LEARTECH_AUTH_JWKS_URL", "https://custom-jwks.example.com/keys")
 
 	cfg, err := Load()
 	if err != nil {
@@ -111,16 +107,23 @@ func TestLoadAuthOptionalJWKSURL(t *testing.T) {
 	}
 }
 
-// TestLoadAuthRequiredExplicitFalse confirms the local-dev opt-out
-// works. Production charts default to true — this test locks the
-// override in so we know how to disable auth during local iteration.
-func TestLoadAuthRequiredExplicitFalse(t *testing.T) {
+// TestLoadAuthRequiredIsIgnored replaces TestLoadAuthRequiredExplicitFalse,
+// which confirmed the local-dev opt-out: AUTH_REQUIRED=false parsed to
+// AuthRequired=false, and main.go then mounted /api/v1 with no middleware at
+// all. One env var served the whole API unauthenticated.
+//
+// The field is gone. This asserts the variable is inert rather than deleting
+// the coverage, so a reintroduction fails a test instead of passing silently.
+func TestLoadAuthRequiredIsIgnored(t *testing.T) {
 	t.Setenv("AUTH_REQUIRED", "false")
+	t.Setenv("LEARTECH_AUTH_ISSUER", "https://hydra.example.com")
+	t.Setenv("LEARTECH_AUTH_AUDIENCE", "leartech-catalog-mcp")
+
 	cfg, err := Load()
 	if err != nil {
-		t.Fatalf("Load() error = %v", err)
+		t.Fatalf("Load: %v", err)
 	}
-	if cfg.AuthRequired {
-		t.Errorf("AuthRequired = true, want false")
+	if cfg.Auth.Issuer != "https://hydra.example.com" || cfg.Auth.Audience != "leartech-catalog-mcp" {
+		t.Fatalf("auth config was affected by AUTH_REQUIRED=false: %+v — the flag must have no effect", cfg.Auth)
 	}
 }

@@ -13,24 +13,31 @@ config:
   cluster: '{{ env "CLUSTER_ID" | default "" }}'
   logLevel: debug
 
-# C1 (auth hardening) preview wiring — MUST NOT run AUTH_REQUIRED=false
-# even in preview. Preview pods run fail-closed with a placeholder issuer;
-# go-common v1.1.0's Verifier tolerates an unreachable JWKS
-# (keyfunc/v3 does lazy background refresh with NoErrorReturnFirstHTTPReq),
-# so the pod boots 1/1 and /health/live is served on the bypass path.
-# Any request to /api/v1/* is rejected 401 because the JWKS never
-# resolves — the exact fail-closed signal C1 requires. Mirrors the
-# orch/agent/mcp preview fix.
+# Previews run with REAL auth, pointed at the cluster's own Hydra.
 #
-# CRITICAL for this initiative: NO clientId/clientSecret here. Preview
-# was previously carrying a throwaway `preview-throwaway-not-a-real-
-# credential` literal so go-common v1.0.0's fail-closed
-# NewServiceClient didn't reject boot. With v1.1.0's inbound-only
-# NewVerifier the entire client-cred config is gone — the Verifier
-# only needs Issuer + Audience.
+# They already ran auth-on, which was right — but against a placeholder issuer
+# (hydra.preview-default.invalid) that never resolves. keyfunc tolerates an
+# unreachable JWKS via lazy background refresh, so the pod booted 1/1 and every
+# /api/v1 request 401'd. That is a fail-closed posture, and the 401 proved the
+# JWKS was unreachable rather than that token validation works.
+#
+# There is no reason for the placeholder: a Verifier needs an issuer and an
+# audience, both PUBLIC, and the cluster's Hydra is reachable from a preview
+# namespace on that cluster. With a real issuer the same 401 now means "a
+# configured verifier refused an anonymous caller", which is the production
+# contract.
+#
+# Host is hydra-jx-staging.<domain>, verified on both clusters
+# (jx.leartech.com and az.leartech.com); the domain comes from jx-values.yaml,
+# which `jx preview create` populates per cluster.
+#
+# `auth.required` is gone with the flag — auth is unconditional.
+{{- $domain := .Values.jxRequirements.ingress.domain | default "" }}
+{{- if not $domain }}
+{{- fail "preview: jxRequirements.ingress.domain is empty, so the Hydra issuer cannot be derived. The chart marks auth.issuer required — fix jx-values.yaml rather than disabling auth." }}
+{{- end }}
 auth:
-  required: true
-  issuer: "https://hydra.preview-default.invalid"
+  issuer: 'https://hydra-jx-staging.{{ $domain }}'
   audience: "leartech-catalog-mcp"
 
 # Looser resources for previews

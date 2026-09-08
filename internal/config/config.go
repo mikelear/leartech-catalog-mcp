@@ -4,6 +4,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/mikelear/leartech-go-common/pkg/auth"
@@ -23,34 +25,18 @@ type Config struct {
 	// provide this via ExternalSecret.
 	DatabaseURL string `envconfig:"DATABASE_URL"`
 
-	// AuthRequired gates the bearer middleware on /api/v1/*.
+	// Auth is the go-common VERIFIER config — inbound token validation only.
+	// catalog-mcp is a pure resource server: it validates JWTs and never mints
+	// them, so VerifierConfig (issuer + audience) is the right role, not the
+	// dual-role Config with its client_credentials fields.
 	//
-	// C1 (auth hardening): default `true` — production charts MUST run
-	// with auth on. Setting `false` is a deliberate local-dev / smoke-
-	// test opt-out; there is NO "auth on but no audience configured"
-	// path — with AuthRequired=true, missing issuer / audience crash
-	// the pod at boot via go-common v1.1.0's fail-closed NewVerifier.
-	// Never noop, never fail-open.
-	AuthRequired bool `envconfig:"AUTH_REQUIRED" default:"true"`
-
-	// Auth is go-common v1.1.0's INBOUND-ONLY VerifierConfig — used to
-	// validate bearer tokens on /api/v1/*. catalog-mcp is a pure resource
-	// server: it validates JWTs but never mints them, so we deliberately
-	// use VerifierConfig (issuer + audience) rather than the full Config
-	// (which also carries client_credentials fields for OUTBOUND minting).
-	//
-	// Envconfig populates each field as AUTH_<FIELDNAME> (uppercased):
-	//   - VerifierConfig.Issuer   → AUTH_ISSUER
-	//   - VerifierConfig.Audience → AUTH_AUDIENCE
-	//   - VerifierConfig.JWKSURL  → AUTH_JWKSURL (optional override)
-	//
-	// The chart's deployment.yaml supplies AUTH_ISSUER and AUTH_AUDIENCE;
-	// when AuthRequired is true and either is empty the pod fails to boot
-	// (the intended fail-closed signal). NO LEARTECH_AUTH_SERVER_URL /
-	// CLIENT_ID / CLIENT_SECRET are required or consulted — that was the
-	// crash-loop this initiative closes: catalog was mis-using the outbound
-	// ServiceAuthClient path for pure inbound validation.
-	Auth auth.VerifierConfig `envconfig:"AUTH"`
+	// NOT populated by envconfig, and the `-` tag is load-bearing. It used to be
+	// `envconfig:"AUTH"`, which maps each Go field name onto AUTH_<FIELDNAME> —
+	// AUTH_ISSUER, AUTH_AUDIENCE. Those names match nothing any other service in
+	// the estate renders and nothing go-common documents (its own tags are
+	// LEARTECH_AUTH_*), so the same value had a different name here than
+	// everywhere else. Populated explicitly in Load() from the standard names.
+	Auth auth.VerifierConfig `envconfig:"-"`
 
 	// FleetTestEnabled is a template-only flag — when true, register
 	// the /api/v1/fleet-test endpoint that calls peer golden-template
@@ -67,5 +53,43 @@ func Load() (*Config, error) {
 	if err := envconfig.Process("", &c); err != nil {
 		return nil, fmt.Errorf("envconfig: %w", err)
 	}
+	c.Auth = loadAuthFromEnv()
 	return &c, nil
+}
+
+// loadAuthFromEnv builds the inbound VerifierConfig from the estate-standard
+// LEARTECH_AUTH_* names. Empty values pass through unchanged: NewVerifier
+// decides whether the result is serviceable, and it refuses rather than
+// degrading — there is no runtime disable path to fall back to.
+func loadAuthFromEnv() auth.VerifierConfig {
+	return auth.VerifierConfig{
+		Issuer:   os.Getenv("LEARTECH_AUTH_ISSUER"),
+		Audience: os.Getenv("LEARTECH_AUTH_AUDIENCE"),
+		JWKSURL:  os.Getenv("LEARTECH_AUTH_JWKS_URL"),
+	}
+}
+
+// inertAuthEnv lists LEARTECH_AUTH_* variables this service reads NO meaning
+// from, so a set-but-ignored value is reported at boot rather than discarded.
+// A resource server verifies with issuer + audience alone; SERVER_URL is the
+// trap worth naming, because it reads like the issuer knob and is not one.
+var inertAuthEnv = []string{
+	"LEARTECH_AUTH_CLIENT_ID",
+	"LEARTECH_AUTH_CLIENT_SECRET",
+	"LEARTECH_AUTH_TARGET_AUDIENCE",
+	"LEARTECH_AUTH_SERVER_URL",
+	"LEARTECH_AUTH_REQUIRED",
+	"LEARTECH_AUTH_REQUIRED_SCOPES",
+}
+
+// InertAuthEnvSet returns the inert LEARTECH_AUTH_* variables actually present
+// and non-empty. Never fatal — an inert value is untidy, not unsafe.
+func InertAuthEnvSet() []string {
+	var set []string
+	for _, k := range inertAuthEnv {
+		if strings.TrimSpace(os.Getenv(k)) != "" {
+			set = append(set, k)
+		}
+	}
+	return set
 }

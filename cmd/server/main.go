@@ -130,30 +130,31 @@ func run() error {
 
 	// All non-health, non-metrics, non-docs routes require bearer auth.
 	//
-	// C1 (auth hardening) fail-closed contract:
-	//   - AuthRequired defaults to true; the pod refuses to boot unless
-	//     issuer + audience are both wired (go-common v1.1.0 validates
-	//     in NewVerifier — no noop / pass-through path).
-	//   - catalog-mcp is a pure resource server (validates JWTs, never
-	//     mints them), so it uses go-common v1.1.0's inbound-only
-	//     Verifier — no client_credentials required.
-	//   - Audience validation is enforced on every request against the
-	//     configured cfg.Auth.Audience ("leartech-catalog-mcp" in prod).
-	//   - AuthRequired=false is a deliberate local-dev / smoke opt-out
-	//     — production charts always run with AuthRequired=true.
+	// Unconditional. AUTH_REQUIRED used to gate this whole block and, when
+	// false, left /api/v1 mounted with no middleware at all — documented as a
+	// local-dev / smoke opt-out. One env var served the API unauthenticated,
+	// which is not a posture worth keeping a switch for.
+	//
+	// catalog-mcp is a pure resource server: it validates JWTs and never mints
+	// them, so it uses the inbound-only Verifier and needs no client
+	// credentials. NewVerifier refuses to construct without both an issuer and
+	// an audience, so a mis-wired pod fails at boot rather than serving open.
 	authed := router.Group("/api/v1")
-	if cfg.AuthRequired {
-		bearer, err := middleware.BearerAuth(cfg.Auth)
-		if err != nil {
-			return fmt.Errorf("auth middleware (AUTH_REQUIRED=true): %w", err)
-		}
-		authed.Use(bearer)
-		log.Info().
-			Str("audience", cfg.Auth.Audience).
-			Str("issuer", cfg.Auth.Issuer).
-			Msg("auth: bearer middleware enabled on /api/v1")
-	} else {
-		log.Warn().Msg("AUTH_REQUIRED=false — /api/v1 is UNAUTHENTICATED (local-dev only)")
+	bearer, err := middleware.BearerAuth(cfg.Auth)
+	if err != nil {
+		return fmt.Errorf("auth middleware: %w", err)
+	}
+	authed.Use(bearer)
+	log.Info().
+		Str("audience", cfg.Auth.Audience).
+		Str("issuer", cfg.Auth.Issuer).
+		Msg("auth: bearer middleware enabled on /api/v1")
+
+	// Report LEARTECH_AUTH_* values this service reads no meaning from, so a
+	// set-but-ignored credential is visible rather than quietly discarded.
+	if inert := config.InertAuthEnvSet(); len(inert) > 0 {
+		log.Warn().Strs("vars", inert).
+			Msg("auth: these LEARTECH_AUTH_* variables are set but IGNORED — catalog-mcp is a resource server and verifies with issuer+audience only")
 	}
 
 	exampleHandler := handlers.NewExampleHandler(pool)
