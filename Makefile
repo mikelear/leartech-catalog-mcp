@@ -79,7 +79,7 @@ tidy-check:   ## Verify go.mod/go.sum are tidy (CI-mode — no writes)
 	@rm -f go.mod.bak go.sum.bak
 	@echo "PASS: go.mod/go.sum are tidy"
 
-build: swag   ## Build the binary
+build:   ## Build the binary
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags="-s -w -X main.version=$(VERSION)" -o bin/server ./cmd/server
 
 test:   ## Run unit tests
