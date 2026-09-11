@@ -54,15 +54,15 @@ $(LEARTECH_GO_MK):
 lint: fetch-mk   ## golangci-lint via the merged config (delegates to golden leartech-go.mk::lint)
 	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) lint
 
-# Mirror the value .lighthouse/jenkins-x/test.yaml injects, so local
-# `make test-coverage` / `make pre-push` reproduce what CI ENFORCES rather than
-# what the golden mk defaults to (60.0). Without it local is STRICTER than CI,
-# and a gate that cries wolf gets ignored as fast as one that passes anything.
-# Keep in sync with that file; drop the override once real coverage clears 60.
-COVERAGE_THRESHOLD ?= 30.0
+# No override. Coverage reached the golden default of 60.0, so this repo uses
+# it rather than keeping a floor nobody has to clear.
+#
+# The CI task's COVERAGE_THRESHOLD=30.0 injection is now redundant and removed
+# from .lighthouse/jenkins-x/test.yaml too, so local and CI agree with nothing
+# to keep in sync.
 
 test-coverage: fetch-mk   ## Race + coverage with the floor CI enforces (delegates to golden leartech-go.mk)
-	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) test-coverage COVERAGE_THRESHOLD=$(COVERAGE_THRESHOLD)
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) test-coverage
 
 vuln: fetch-mk   ## govulncheck (delegates to golden leartech-go.mk::vuln)
 	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) vuln
@@ -71,7 +71,7 @@ vuln: fetch-mk   ## govulncheck (delegates to golden leartech-go.mk::vuln)
 # `make lint` alone does NOT include govulncheck: that is a separate target,
 # and running only lint is how a vulnerability finding reached a PR.
 pre-push: fetch-mk   ## Full local gate: vet tidy-check build test-coverage lint vuln
-	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) pre-push COVERAGE_THRESHOLD=$(COVERAGE_THRESHOLD)
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) pre-push
 
 lint-check: lint   ## Alias of lint (idempotent — no auto-fix here)
 

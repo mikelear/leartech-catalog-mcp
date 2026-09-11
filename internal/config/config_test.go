@@ -127,3 +127,74 @@ func TestLoadAuthRequiredIsIgnored(t *testing.T) {
 		t.Fatalf("auth config was affected by AUTH_REQUIRED=false: %+v — the flag must have no effect", cfg.Auth)
 	}
 }
+
+// InertAuthEnvSet reports LEARTECH_AUTH_* variables this service reads no
+// meaning from. It exists because an operator who sets one deserves to be told
+// it does nothing, rather than infer protection that was never configured —
+// LEARTECH_AUTH_SERVER_URL especially, which reads like the issuer knob and is
+// the go-common TOKEN ENDPOINT a resource server never posts to.
+//
+// A reporter that reports nothing is indistinguishable from a clean
+// environment, so both directions are asserted.
+func TestInertAuthEnvSet(t *testing.T) {
+	t.Run("silent when nothing inert is set", func(t *testing.T) {
+		for _, k := range []string{
+			"LEARTECH_AUTH_CLIENT_ID", "LEARTECH_AUTH_CLIENT_SECRET",
+			"LEARTECH_AUTH_TARGET_AUDIENCE", "LEARTECH_AUTH_SERVER_URL",
+			"LEARTECH_AUTH_REQUIRED", "LEARTECH_AUTH_REQUIRED_SCOPES",
+		} {
+			t.Setenv(k, "x")
+			if err := os.Unsetenv(k); err != nil {
+				t.Fatalf("unset %s: %v", k, err)
+			}
+		}
+		if got := InertAuthEnvSet(); len(got) != 0 {
+			t.Fatalf("InertAuthEnvSet() = %v on a clean environment", got)
+		}
+	})
+
+	t.Run("names a set-but-ignored credential", func(t *testing.T) {
+		t.Setenv("LEARTECH_AUTH_CLIENT_ID", "catalog-mcp")
+		got := InertAuthEnvSet()
+		if len(got) != 1 || got[0] != "LEARTECH_AUTH_CLIENT_ID" {
+			t.Fatalf("InertAuthEnvSet() = %v, want exactly [LEARTECH_AUTH_CLIENT_ID]", got)
+		}
+	})
+
+	// The decoy. SERVER_URL must be reported, because an operator setting it
+	// almost certainly believes they are configuring the issuer.
+	t.Run("names LEARTECH_AUTH_SERVER_URL, which does not set the issuer", func(t *testing.T) {
+		t.Setenv("LEARTECH_AUTH_SERVER_URL", "https://hydra.example")
+		t.Setenv("LEARTECH_AUTH_ISSUER", "https://real-issuer.example")
+		t.Setenv("LEARTECH_AUTH_AUDIENCE", "leartech-catalog-mcp")
+
+		found := false
+		for _, k := range InertAuthEnvSet() {
+			if k == "LEARTECH_AUTH_SERVER_URL" {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("LEARTECH_AUTH_SERVER_URL was not reported as inert")
+		}
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if cfg.Auth.Issuer != "https://real-issuer.example" {
+			t.Errorf("Auth.Issuer = %q — LEARTECH_AUTH_SERVER_URL must not influence it", cfg.Auth.Issuer)
+		}
+	})
+
+	// Whitespace-only is not "set": reporting it would be noise, and an
+	// operator clearing a value by blanking it should see it disappear.
+	t.Run("whitespace-only is not reported", func(t *testing.T) {
+		t.Setenv("LEARTECH_AUTH_CLIENT_SECRET", "   ")
+		for _, k := range InertAuthEnvSet() {
+			if k == "LEARTECH_AUTH_CLIENT_SECRET" {
+				t.Error("a whitespace-only value was reported as set")
+			}
+		}
+	})
+}
