@@ -1,4 +1,4 @@
-.PHONY: all pre-push swag swag-check lint lint-config lint-check fmt vet tidy tidy-check \
+.PHONY: test-coverage vuln pre-push all pre-push swag swag-check lint fetch-mk lint-check fmt vet tidy tidy-check \
         build test test-verbose test-coverage vuln secrets clean help diagnose
 
 VERSION             ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -32,21 +32,46 @@ swag-check:   ## Verify docs/swagger.json is in sync with annotations (CI-mode �
 	@rm -f docs/swagger.json.bak
 	@echo "PASS: docs/swagger.json in sync"
 
-lint-config:   ## Fetch + merge base golangci config from pipeline-catalog
-	@command -v yq >/dev/null || { echo "yq required (brew install yq)"; exit 1; }
-	@curl -fsSL -o .golangci.base.yml $(GOLANGCI_BASE_URL)
-	@yq eval-all '. as $$item ireduce ({}; . *+ $$item)' .golangci.base.yml .golangci.yml > .golangci.merged.yml
+# ── Golden Go lint: delegate to the pipeline catalog ───────────────────────
+#
+# Runs go/leartech-go.mk from leartech-pipeline-catalog — the SAME file CI curls
+# in tasks/go-lint/pullrequest.yaml — so a laptop reproduces CI byte-for-byte
+# rather than approximately. This target used to re-implement the fetch+merge
+# locally; two implementations of one gate drift, and when they do the local one
+# is the weaker.
+LEARTECH_GO_MK_REF ?= main
+LEARTECH_GO_MK_URL ?= https://raw.githubusercontent.com/mikelear/leartech-pipeline-catalog/$(LEARTECH_GO_MK_REF)/go/leartech-go.mk
+LEARTECH_GO_MK     := .leartech-go.mk
 
-lint: lint-config   ## Run golangci-lint
-	@# Self-bootstrap: install golangci-lint v2 to GOPATH/bin if not present
-	@# there with v2.x. Use the explicit path to avoid PATH-ordering issues
-	@# (e.g. brew-installed v1.x shadowing the GOPATH/bin v2.x).
-	@GOLANGCI_BIN=$$($(GO) env GOPATH)/bin/golangci-lint; \
-	if [ ! -x "$$GOLANGCI_BIN" ] || ! $$GOLANGCI_BIN --version 2>/dev/null | grep -qE 'version 2\.'; then \
-		echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION) to $$GOLANGCI_BIN..."; \
-		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$($(GO) env GOPATH)/bin $(GOLANGCI_LINT_VERSION); \
-	fi; \
-	$$GOLANGCI_BIN run --config .golangci.merged.yml ./...
+fetch-mk: $(LEARTECH_GO_MK)   ## Fetch the golden go/leartech-go.mk from pipeline-catalog
+
+$(LEARTECH_GO_MK):
+	@echo "==> fetching $(LEARTECH_GO_MK_URL)"
+	@curl -fsSL -o $@ $(LEARTECH_GO_MK_URL)
+
+# SHELL=/bin/bash: the golden mk uses bash-only syntax. CI images ship bash as
+# /bin/sh so the drift is invisible there; a laptop /bin/sh needs the override.
+lint: fetch-mk   ## golangci-lint via the merged config (delegates to golden leartech-go.mk::lint)
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) lint
+
+# No override. Coverage reached the golden default of 60.0, so this repo uses
+# it rather than keeping a floor nobody has to clear.
+#
+# The CI task's COVERAGE_THRESHOLD=30.0 injection is now redundant and removed
+# from .lighthouse/jenkins-x/test.yaml too, so local and CI agree with nothing
+# to keep in sync.
+
+test-coverage: fetch-mk   ## Race + coverage with the floor CI enforces (delegates to golden leartech-go.mk)
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) test-coverage
+
+vuln: fetch-mk   ## govulncheck (delegates to golden leartech-go.mk::vuln)
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) vuln
+
+# pre-push is THE local entry point — what CI runs, in one command.
+# `make lint` alone does NOT include govulncheck: that is a separate target,
+# and running only lint is how a vulnerability finding reached a PR.
+pre-push: fetch-mk   ## Full local gate: vet tidy-check build test-coverage lint vuln
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) pre-push
 
 lint-check: lint   ## Alias of lint (idempotent — no auto-fix here)
 
@@ -81,17 +106,7 @@ test:   ## Run unit tests
 test-verbose:   ## Run tests with verbose output (alias of test for now)
 	$(GO) test --tags=unit -v -failfast -count=1 ./...
 
-test-coverage:   ## Run tests with coverage threshold check
-	$(GO) test ./... -v -count=1 -race -coverprofile=cover.out
-	@TOTAL=$$($(GO) tool cover -func=cover.out | awk '/^total:/ {print $$3}' | sed 's/%//'); \
-	THRESHOLD=60.0; \
-	echo "coverage: $$TOTAL% (threshold: $$THRESHOLD%)"; \
-	awk -v t="$$TOTAL" -v th="$$THRESHOLD" 'BEGIN { exit !(t < th) }' && echo "FAIL: below threshold" && exit 1 || true; \
-	echo "PASS"
 
-vuln:   ## Scan for known Go vulnerabilities (govulncheck)
-	@command -v govulncheck >/dev/null || $(GO) install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
-	govulncheck ./...
 
 secrets:   ## Scan for committed secrets (gitleaks)
 	@command -v gitleaks >/dev/null || { \

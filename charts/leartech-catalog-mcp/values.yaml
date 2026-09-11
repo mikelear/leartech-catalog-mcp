@@ -125,8 +125,21 @@ migrations:
 #     the concrete Hydra URL. Preview `values.yaml.gotmpl` overrides
 #     with a placeholder so previews boot 1/1 without a live Hydra.
 auth:
-  required: true
+  # There is NO required toggle. `auth.required: false` used to mount /api/v1
+  # with no middleware at all — documented as a local-dev / smoke opt-out, and
+  # in practice one value away from serving the whole API unauthenticated.
+  # Auth is unconditional now; a missing issuer or audience fails the pod at
+  # boot instead.
+
+  # The token issuer, enforced on every request under RFC 7519 4.1.1. No
+  # default: gcp and az run different Hydras, so a shared one would be wrong
+  # everywhere. `required` in the template, so a chart rendered without it
+  # fails rather than producing a pod that cannot verify.
   issuer: ""
+
+  # The RFC 8707 `aud` claim enforced on inbound tokens. Canonical, so it does
+  # have a default — but the template still marks it `required`, which catches
+  # the case that matters: an overlay setting it to "" explicitly.
   audience: leartech-catalog-mcp
 
 # Template-only feature flags. These exist so the golden-template's

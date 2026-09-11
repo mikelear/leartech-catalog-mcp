@@ -53,6 +53,39 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/fleet-test": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "fleet-test"
+                ],
+                "summary": "Fleet test endpoint — calls peer template SDKs to prove cross-service auth + SDK wiring.",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.fleetTestResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/health/live": {
             "get": {
                 "tags": [
@@ -112,6 +145,43 @@ const docTemplate = `{
                 "service": {
                     "type": "string",
                     "example": "leartech-catalog-mcp"
+                }
+            }
+        },
+        "handlers.fleetTestResponse": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.peerResult"
+                    }
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "summary": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.peerResult": {
+            "type": "object",
+            "properties": {
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "http_code": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "peer": {
+                    "type": "string"
                 }
             }
         }
