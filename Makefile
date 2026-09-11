@@ -2,7 +2,6 @@
         build test test-verbose test-coverage vuln secrets clean help diagnose
 
 VERSION             ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-SWAG_VERSION        := v1.16.4
 GOLANGCI_BASE_URL   := https://raw.githubusercontent.com/mikelear/leartech-pipeline-catalog/main/go/.golangci.base.yml
 GITLEAKS_VERSION       := v8.18.4
 GOVULNCHECK_VERSION    := v1.1.4   # pinned to match CI (catalog tasks/govulncheck/pullrequest.yaml). v1.2.0+ requires go 1.25; bump alongside fleet-wide go.mod upgrade.
@@ -13,24 +12,7 @@ MODULE              := github.com/mikelear/leartech-catalog-mcp
 
 all: fmt swag build test lint   ## Format, regenerate spec, build, test, lint
 
-pre-push: fmt vet swag-check tidy-check build test lint vuln secrets   ## Tier-1 gates that MUST pass before pushing
 
-swag:   ## Regenerate OpenAPI spec from annotations
-	@command -v swag >/dev/null 2>&1 || $(GO) install github.com/swaggo/swag/cmd/swag@$(SWAG_VERSION)
-	@# Portable BSD/GNU sed: `-i.bak` + rm so macOS + Alpine both work.
-	@sed -i.bak 's|^//	@version.*|//	@version		$(VERSION)|' cmd/server/main.go
-	@rm -f cmd/server/main.go.bak
-	swag init -g cmd/server/main.go -o docs
-
-swag-check:   ## Verify docs/swagger.json is in sync with annotations (CI-mode — no writes)
-	@cp docs/swagger.json docs/swagger.json.bak 2>/dev/null || true
-	@$(MAKE) -s swag >/dev/null 2>&1
-	@if ! diff -q docs/swagger.json docs/swagger.json.bak >/dev/null 2>&1; then \
-		mv docs/swagger.json.bak docs/swagger.json 2>/dev/null || true; \
-		echo "FAIL: docs/swagger.json is not in sync with annotations. Run 'make swag' and commit."; exit 1; \
-	fi
-	@rm -f docs/swagger.json.bak
-	@echo "PASS: docs/swagger.json in sync"
 
 # ── Golden Go lint: delegate to the pipeline catalog ───────────────────────
 #
@@ -97,7 +79,7 @@ tidy-check:   ## Verify go.mod/go.sum are tidy (CI-mode — no writes)
 	@rm -f go.mod.bak go.sum.bak
 	@echo "PASS: go.mod/go.sum are tidy"
 
-build: swag   ## Build the binary
+build:   ## Build the binary
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags="-s -w -X main.version=$(VERSION)" -o bin/server ./cmd/server
 
 test:   ## Run unit tests
@@ -149,3 +131,21 @@ diagnose:   ## Show which Tekton presubmit checks are covered locally vs need cl
 
 help:   ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# swag/swag-check used to be implemented here. The local recipe installed the
+# pinned SWAG_VERSION only `if ! command -v swag` — so whichever swag a laptop
+# already had won, and a different minor version emits a different spec. On
+# 2026-09-11 that made leartech-plan-api report docs/swagger.json "not in sync"
+# against a spec the golden check confirms is correct, and regenerating with a
+# stale v1.8.4 silently dropped an enum and the bearer-token security
+# description. release.yaml publishes five SDKs from that spec.
+#
+# The constant is gone too: SWAG_VERSION here had drifted to v1.16.4 against
+# go.mod's v1.16.6. A second source of truth for a version is a second thing to
+# forget, so the golden mk reads go.mod, reinstalls on MISMATCH rather than
+# absence, and renders to a temp dir instead of overwriting docs/.
+swag: fetch-mk   ## Regenerate docs/ from annotations (delegates to golden leartech-go.mk)
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) swag
+
+swag-check: fetch-mk   ## Fail if docs/ is stale (delegates to golden leartech-go.mk)
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) swag-check
