@@ -1,4 +1,4 @@
-.PHONY: all pre-push swag swag-check lint fetch-mk lint-check fmt vet tidy tidy-check \
+.PHONY: test-coverage vuln pre-push all pre-push swag swag-check lint fetch-mk lint-check fmt vet tidy tidy-check \
         build test test-verbose test-coverage vuln secrets clean help diagnose
 
 VERSION             ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -54,6 +54,25 @@ $(LEARTECH_GO_MK):
 lint: fetch-mk   ## golangci-lint via the merged config (delegates to golden leartech-go.mk::lint)
 	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) lint
 
+# Mirror the value .lighthouse/jenkins-x/test.yaml injects, so local
+# `make test-coverage` / `make pre-push` reproduce what CI ENFORCES rather than
+# what the golden mk defaults to (60.0). Without it local is STRICTER than CI,
+# and a gate that cries wolf gets ignored as fast as one that passes anything.
+# Keep in sync with that file; drop the override once real coverage clears 60.
+COVERAGE_THRESHOLD ?= 30.0
+
+test-coverage: fetch-mk   ## Race + coverage with the floor CI enforces (delegates to golden leartech-go.mk)
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) test-coverage COVERAGE_THRESHOLD=$(COVERAGE_THRESHOLD)
+
+vuln: fetch-mk   ## govulncheck (delegates to golden leartech-go.mk::vuln)
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) vuln
+
+# pre-push is THE local entry point — what CI runs, in one command.
+# `make lint` alone does NOT include govulncheck: that is a separate target,
+# and running only lint is how a vulnerability finding reached a PR.
+pre-push: fetch-mk   ## Full local gate: vet tidy-check build test-coverage lint vuln
+	$(MAKE) SHELL=/bin/bash -f $(LEARTECH_GO_MK) pre-push COVERAGE_THRESHOLD=$(COVERAGE_THRESHOLD)
+
 lint-check: lint   ## Alias of lint (idempotent — no auto-fix here)
 
 fmt:   ## Format Go code (gofmt + goimports)
@@ -87,17 +106,7 @@ test:   ## Run unit tests
 test-verbose:   ## Run tests with verbose output (alias of test for now)
 	$(GO) test --tags=unit -v -failfast -count=1 ./...
 
-test-coverage:   ## Run tests with coverage threshold check
-	$(GO) test ./... -v -count=1 -race -coverprofile=cover.out
-	@TOTAL=$$($(GO) tool cover -func=cover.out | awk '/^total:/ {print $$3}' | sed 's/%//'); \
-	THRESHOLD=60.0; \
-	echo "coverage: $$TOTAL% (threshold: $$THRESHOLD%)"; \
-	awk -v t="$$TOTAL" -v th="$$THRESHOLD" 'BEGIN { exit !(t < th) }' && echo "FAIL: below threshold" && exit 1 || true; \
-	echo "PASS"
 
-vuln:   ## Scan for known Go vulnerabilities (govulncheck)
-	@command -v govulncheck >/dev/null || $(GO) install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
-	govulncheck ./...
 
 secrets:   ## Scan for committed secrets (gitleaks)
 	@command -v gitleaks >/dev/null || { \
