@@ -109,8 +109,8 @@ github.com/mattn/go-colorable v0.1.14 h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHP
 github.com/mattn/go-colorable v0.1.14/go.mod h1:6LmQG8QLFO4G5z1gPvYEzlUgJ2wF+stgPZH1UqBm1s8=
 github.com/mattn/go-isatty v0.0.22 h1:j8l17JJ9i6VGPUFUYoTUKPSgKe/83EYU2zBC7YNKMw4=
 github.com/mattn/go-isatty v0.0.22/go.mod h1:ZXfXG4SQHsB/w3ZeOYbR0PrPwLy+n6xiMrJlRFqopa4=
-github.com/mikelear/leartech-go-common v1.2.0 h1:USN3/kd9nzrWiGpfBNg8MbjMLSCGGBlL30SP0kqaqnk=
-github.com/mikelear/leartech-go-common v1.2.0/go.mod h1:vnVGVbFeEsKJQHj4emvshOmEVQapXnPD1A13p72boHg=
+github.com/mikelear/leartech-go-common v1.3.3 h1:tKGPi7br6L1dV/8rV4cUK9ruypadn8VMV58VJBdfbpg=
+github.com/mikelear/leartech-go-common v1.3.3/go.mod h1:hIrDJi+Olg6EZvwjU6EZ5kSMEUm8Kdeo3Z5XSlsIodQ=
 github.com/mikelear/leartech-go-packages/rustservicetemplate v0.0.0-20260608074839-546338dd91b0 h1:/z0wqadyLHlbIamNU3zQ8/xeno8b5mjAlHY2TBQ8ong=
 github.com/mikelear/leartech-go-packages/rustservicetemplate v0.0.0-20260608074839-546338dd91b0/go.mod h1:b38dfElnoI8bbcch3Xw3sqNDJcvhpROO+dMlO7Ik05U=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
