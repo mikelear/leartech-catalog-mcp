@@ -13,7 +13,7 @@ require (
 	github.com/mikelear/leartech-go-packages/rustservicetemplate v0.0.0-20260608074839-546338dd91b0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/zerolog v1.35.1
-	github.com/swaggest/swgui v1.8.7
+	github.com/swaggest/swgui v1.8.9
 	github.com/swaggo/swag v1.16.6
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.69.0
 	go.opentelemetry.io/otel v1.44.0
