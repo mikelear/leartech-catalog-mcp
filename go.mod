@@ -9,8 +9,8 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/mikelear/leartech-go-common v1.3.3
-	github.com/mikelear/leartech-go-packages/rustservicetemplate v0.0.0-20260608074839-546338dd91b0
+	github.com/mikelear/leartech-go-common v1.4.1
+	github.com/mikelear/leartech-go-packages/rustservicetemplate v0.0.0-20260926153529-01340bda185a
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/zerolog v1.35.1
 	github.com/swaggest/swgui v1.8.7
@@ -92,7 +92,7 @@ require (
 	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
-	google.golang.org/grpc v1.82.1 // indirect
+	google.golang.org/grpc v1.83.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
