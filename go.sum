@@ -111,8 +111,12 @@ github.com/mattn/go-isatty v0.0.22 h1:j8l17JJ9i6VGPUFUYoTUKPSgKe/83EYU2zBC7YNKMw
 github.com/mattn/go-isatty v0.0.22/go.mod h1:ZXfXG4SQHsB/w3ZeOYbR0PrPwLy+n6xiMrJlRFqopa4=
 github.com/mikelear/leartech-go-common v1.3.3 h1:tKGPi7br6L1dV/8rV4cUK9ruypadn8VMV58VJBdfbpg=
 github.com/mikelear/leartech-go-common v1.3.3/go.mod h1:hIrDJi+Olg6EZvwjU6EZ5kSMEUm8Kdeo3Z5XSlsIodQ=
+github.com/mikelear/leartech-go-common v1.4.1 h1:qrZX2pTLDmAX1YWnGVjGfT1LJU9pbCDDTZC8amGArRc=
+github.com/mikelear/leartech-go-common v1.4.1/go.mod h1:NJpq4zPpOF1JOB1+6bRmLDgXe/55/7EROPRQHwpb0QQ=
 github.com/mikelear/leartech-go-packages/rustservicetemplate v0.0.0-20260608074839-546338dd91b0 h1:/z0wqadyLHlbIamNU3zQ8/xeno8b5mjAlHY2TBQ8ong=
 github.com/mikelear/leartech-go-packages/rustservicetemplate v0.0.0-20260608074839-546338dd91b0/go.mod h1:b38dfElnoI8bbcch3Xw3sqNDJcvhpROO+dMlO7Ik05U=
+github.com/mikelear/leartech-go-packages/rustservicetemplate v0.0.0-20260926153529-01340bda185a h1:ymbs5uaAbGx5ZFXA0qjPoJxuA1uVAxjvNacnl10u6K4=
+github.com/mikelear/leartech-go-packages/rustservicetemplate v0.0.0-20260926153529-01340bda185a/go.mod h1:b38dfElnoI8bbcch3Xw3sqNDJcvhpROO+dMlO7Ik05U=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
@@ -234,6 +238,8 @@ google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa h1:
 google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa/go.mod h1:4Hqkh8ycfw05ld/3BWL7rJOSfebL2Q+DVDeRgYgxUU8=
 google.golang.org/grpc v1.82.1 h1:NnAxzGRA0677vCa4BUkOAnO5+FfQqVl9iUXeD0IqcGE=
 google.golang.org/grpc v1.82.1/go.mod h1:yzTZ1TB1Z3SG+LIYaI+WiE8D5+PZ3ArnrSp8zF3+/ZA=
+google.golang.org/grpc v1.83.1 h1:HIO0+BEtBP6soyqvqC8sNUjZ7bTs+0hFQuFF+RAy++Y=
+google.golang.org/grpc v1.83.1/go.mod h1:kDyl6SKsiHKt0uylY5gtn5cEjkrIOhQOGDgIc4JGwzQ=
 google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=
 google.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
