@@ -95,7 +95,7 @@ migrations:
   enabled: true
   image:
     repository: ghcr.io/kukymbr/goose-docker
-    tag: "3.27.1"
+    tag: "3.28.0"
 
 # go-common v1.1.0 auth.VerifierConfig — populated as env vars with the
 # AUTH_ prefix. envconfig.Process on the embedded `Auth auth.VerifierConfig
